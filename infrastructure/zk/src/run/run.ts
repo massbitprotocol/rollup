@@ -255,3 +255,11 @@ command
     .action(async (address: string, contractName: string, variableName: string, cmd: Command) => {
         await readVariable(address, contractName, variableName, cmd.file);
     });
+
+command
+    .command('demo')
+    .description('run massbit rollup demos')
+    //.option('--offline')
+    .action(async () => {
+        await utils.spawn('yarn ts-tests demo');
+    });

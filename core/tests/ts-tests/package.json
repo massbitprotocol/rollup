@@ -13,6 +13,7 @@
     ]
   },
   "scripts": {
+    "demo": "zk f mocha tests/demo/index.ts",
     "test": "zk f mocha tests/main.test.ts",
     "api-test": "zk f mocha tests/api.test.ts",
     "withdrawal-helpers-test": "zk f mocha tests/withdrawal-helpers.test.ts"

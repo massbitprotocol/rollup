@@ -1,6 +1,7 @@
 // Built-in uses
 use std::time::{Duration, Instant};
 // External uses
+use dac_client::DACClient;
 use futures::{channel::mpsc::Receiver, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::{task::JoinHandle, time};
@@ -54,7 +55,11 @@ pub struct ExecutedOpsNotify {
 
 const PROOF_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
-async fn handle_new_commit_task(mut rx_for_ops: Receiver<CommitRequest>, pool: ConnectionPool) {
+async fn handle_new_commit_task(
+    mut rx_for_ops: Receiver<CommitRequest>,
+    pool: ConnectionPool,
+    dac_client: DACClient,
+) {
     vlog::info!("Run committer");
     let mut token_db_cache = TokenDBCache::new(TOKEN_INVALIDATE_CACHE);
     token_db_cache
@@ -75,7 +80,7 @@ async fn handle_new_commit_task(mut rx_for_ops: Receiver<CommitRequest>, pool: C
                 save_pending_block(pending_block, applied_updates_req, &pool).await;
             }
             CommitRequest::FinishBlock(request) => {
-                finish_block(request, &pool).await;
+                finish_block(request, &pool, &dac_client).await;
             }
             CommitRequest::RemoveRevertedBlock(block_number) => {
                 remove_reverted_block(block_number, &pool).await;
@@ -225,8 +230,8 @@ async fn seal_incomplete_block(
     metrics::histogram!("committer.seal_incomplete_block", start.elapsed());
 }
 
-async fn finish_block(request: BlockFinishRequest, pool: &ConnectionPool) {
-    let start = Instant::now();
+async fn finish_block(request: BlockFinishRequest, pool: &ConnectionPool, dac_client: &DACClient) {
+    let mut start = Instant::now();
     let BlockFinishRequest {
         block_number,
         root_hash,
@@ -265,7 +270,11 @@ async fn finish_block(request: BlockFinishRequest, pool: &ConnectionPool) {
     });
 
     let block = Block::from_incomplete(incomplete_block, prev_root_hash, root_hash);
-
+    //Push block onto DAC layer
+    vlog::info!("Store block #{}:{:?} on the DAC", block_number, &block);
+    dac_client.store_block(&block, 70000).await;
+    metrics::histogram!("committer.finish_block", start.elapsed());
+    start = Instant::now();
     transaction
         .chain()
         .block_schema()
@@ -304,6 +313,7 @@ pub fn run_committer(
     pool: ConnectionPool,
     config: ChainConfig,
 ) -> JoinHandle<()> {
-    tokio::spawn(handle_new_commit_task(rx_for_ops, pool.clone()));
+    let dac_client = DACClient::default();
+    tokio::spawn(handle_new_commit_task(rx_for_ops, pool.clone(), dac_client));
     tokio::spawn(poll_for_new_proofs_task(pool, config))
 }

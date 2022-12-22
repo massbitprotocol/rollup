@@ -28,7 +28,7 @@ zksync_eth_signer = { path = "../../lib/eth_signer", version = "1.0" }
 zksync_prometheus_exporter = { path = "../../lib/prometheus_exporter", version = "1.0" }
 zksync_balancer = { path = "../../lib/balancer", version = "1.0" }
 zksync_gateway_watcher = { path = "../../lib/gateway_watcher", version = "1.0" }
-
+dac_client = {  path = "../../lib/dac_client", version = "1.0" }
 num = { version = "0.3.1", features = ["serde"] }
 
 ethabi = "16.0.0"

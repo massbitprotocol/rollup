@@ -1,0 +1,24 @@
+version: '3.8'
+#docker network create -d bridge --gateway "172.20.12.1" --subnet "172.20.12.0/24"  massbit_rollup
+networks:
+  massbit_rollup:
+    driver: bridge
+    external: true
+
+services:
+  rollup-redis:
+    image: redis:7.0.7
+    restart: always
+    container_name: rollup-redis
+    networks:
+      massbit_rollup:
+        ipv4_address: 172.20.12.10
+    ports:
+      - "6379:6379"
+    #command: "sleep infinity"
+    command: redis-server --loglevel warning
+    volumes:
+      - rollup-redis:/data
+volumes:
+  rollup-redis:
+    driver: local

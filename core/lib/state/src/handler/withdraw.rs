@@ -29,6 +29,12 @@ impl TxHandler<Withdraw> for ZkSyncState {
         let (account_id, account) = self
             .get_account_by_address(&tx.from)
             .ok_or(WithdrawOpError::FromAccountNotFound)?;
+        println!(
+            "Account {:?} with pub_key_hash {:?}; Default pub key hash: {:?}",
+            account.address,
+            account.pub_key_hash,
+            PubKeyHash::default()
+        );
         invariant!(
             account.pub_key_hash != PubKeyHash::default(),
             WithdrawOpError::FromAccountLocked

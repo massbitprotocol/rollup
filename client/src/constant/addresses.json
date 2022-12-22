@@ -1,0 +1,12 @@
+{
+  "alice": {
+    "address":"0x495ee1f394E7Fbc55E162B3589eB24717f2cE20B",
+    "mnemonic":"cool taxi local destroy pumpkin treat approve cliff kite leave furnace away",
+    "privatekey":"0xfc066b11d01ecf31a4e3102569f3645e0bd57a2ca3620569bef0752d98cdb4cd"
+  },
+  "bob": {
+    "address":"0x9005F02371fceDfE66A92D6A66Ba84e5Db69f9B8",
+    "mnemonic":"begin upset talent olympic chat fold total vast birth fame glass local",
+    "privatekey":"0x891650bac7500ac8c22eb8aae13f64227a1198f024b422747efe1b870f1732af"
+  }
+}

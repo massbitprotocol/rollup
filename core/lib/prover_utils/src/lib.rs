@@ -102,6 +102,7 @@ impl SetupForStepByStepProver {
         circuit: C,
         vk: &PlonkVerificationKey,
     ) -> Result<SingleProof, anyhow::Error> {
+        vlog::info!("start gen_step_by_step_proof_using_prepared_setup");
         let start = Instant::now();
         let rns_params =
             RnsParameters::<Engine, <Engine as EngineTrait>::Fq>::new_for_field(68, 110, 4);
@@ -140,6 +141,7 @@ impl SetupForStepByStepProver {
             metrics::histogram!("prover", start.elapsed(), "stage" => "test_constraint_system", "type" => "single_proof");
         }
         anyhow::ensure!(valid, "proof for block is invalid");
+        vlog::info!("finish gen_step_by_step_proof_using_prepared_setup");
         Ok(proof.into())
     }
 }

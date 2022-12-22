@@ -201,7 +201,7 @@ pub async fn prover_work_cycle<PROVER, CLIENT>(
         let compute_proof_future = compute_proof_no_blocking(prover, job_data).fuse();
 
         pin_mut!(heartbeat_future_handle, compute_proof_future);
-
+        let start = std::time::Instant::now();
         vlog::info!(
             "starting to compute proof for blocks: [{}, {}]",
             first_block,
@@ -215,7 +215,12 @@ pub async fn prover_work_cycle<PROVER, CLIENT>(
             _ = heartbeat_future_handle => unreachable!(),
         };
         prover = ret_prover;
-
+        vlog::info!(
+            "Finished to compute proof for blocks: [{}, {}] in {:?}",
+            first_block,
+            last_block,
+            start.elapsed()
+        );
         client
             .publish(ProverOutputRequest {
                 job_id,
