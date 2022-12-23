@@ -1,13 +1,10 @@
-import
-{
-    ethers
-} from "ethers";
-import {Address, TokenLike} from "zksync/build/types";
-import {SyncProvider} from "zksync";
-import {Provider} from "@ethersproject/abstract-provider";
+import { ethers } from 'ethers';
+import { Address, TokenLike } from 'zksync/build/types';
+import { SyncProvider } from 'zksync';
+import { Provider } from '@ethersproject/abstract-provider';
 
 type Network = 'localhost' | 'goerli';
-let web3Url = "http://127.0.0.1:8545";
+let web3Url = 'http://127.0.0.1:8545';
 const ERC20ABI = require('./erc20.abi.json');
 
 export class EthClient {
@@ -15,14 +12,10 @@ export class EthClient {
     public ethProvider: ethers.providers.Provider;
     public runningFee: ethers.BigNumber;
     public contracts: Map<string, ethers.Contract>;
-    constructor(
-        public network: Network,
-        public syncProvider: SyncProvider
-    ) {
+    constructor(public network: Network, public syncProvider: SyncProvider) {
         //this.contract = new ethers.Contract(syncProvider.contractAddress.mainContract, zksyncAbi, ethWallet);
-        this.ethProvider = network == 'localhost'
-            ? new ethers.providers.JsonRpcProvider(web3Url)
-            : ethers.getDefaultProvider(network);
+        this.ethProvider =
+            network == 'localhost' ? new ethers.providers.JsonRpcProvider(web3Url) : ethers.getDefaultProvider(network);
         this.contracts = new Map<string, ethers.Contract>();
         this.runningFee = ethers.BigNumber.from(0);
     }
@@ -32,19 +25,17 @@ export class EthClient {
         return new EthClient(network, synProvider);
     }
     async getL1Balance(address: Address) {
-        let balance = await this.ethProvider.getBalance(
-        address);
+        let balance = await this.ethProvider.getBalance(address);
         return balance;
     }
     async getL1ERC20Balance(address: ethers.Signer, token: string) {
-
         let contract = this.contracts.get(token);
         if (!contract) {
             const tokenAddress = this.syncProvider.tokenSet.resolveTokenAddress(token);
             console.log(token, tokenAddress);
             //const resolvedAddress = await  this.ethProvider.resolveName(tokenAddress);
             //console.log(resolvedAddress, Provider.isProvider(this.ethProvider));
-            contract =  new ethers.Contract('0xb59a57032526f14a6d1aa7daaf9116f4a1e65f3b', ERC20ABI, this.ethProvider);
+            contract = new ethers.Contract('0xb59a57032526f14a6d1aa7daaf9116f4a1e65f3b', ERC20ABI, this.ethProvider);
             console.log(`Create contract for token ${token}`);
             this.contracts.set(token, contract);
         }

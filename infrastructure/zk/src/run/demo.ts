@@ -5,15 +5,14 @@ import * as utils from '../utils';
 //import os from "os";
 export const command = new Command('demo')
     .description('start zksync demo')
-    .option('--scenario', 'run demo scenario').action(async (cmd: Command) => {
-     await demo();
-});
+    .option('--scenario', 'run demo scenario')
+    .action(async (cmd: Command) => {
+        await demo();
+    });
 
 export async function demo() {
-    console.log("Run demo")
+    console.log('Run demo');
     //await utils.spawn('yarn ts-tests api-test');
 }
 
-async function createAccounts() {
-
-}
+async function createAccounts() {}

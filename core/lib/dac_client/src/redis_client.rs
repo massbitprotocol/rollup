@@ -34,12 +34,12 @@ impl RedisClient {
             .arg(key.as_str())
             .arg(data)
             .query(&mut conn)
-            .expect("failed to execute SET for 'foo'");
+            .expect(format!("failed to execute SET for {:?}", key).as_str());
 
         let stored_value: String = redis::cmd("GET")
             .arg(key.as_str())
             .query(&mut conn)
-            .expect("failed to execute GET for 'foo'");
+            .expect(format!("failed to execute GET for {:?}", key).as_str());
         println!("value for {} = {}", &key, stored_value);
     }
 }

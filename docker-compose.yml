@@ -46,6 +46,6 @@ services:
     container_name: rollup-redis
     ports:
       - "6379:6379"
-    command: redis-server --loglevel warning
+    command: redis-server --save 60 1 --loglevel warning
     volumes:
       - ./volumes/redis:/data

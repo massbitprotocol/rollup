@@ -1,12 +1,12 @@
 {
   "alice": {
-    "address":"0x495ee1f394E7Fbc55E162B3589eB24717f2cE20B",
-    "mnemonic":"cool taxi local destroy pumpkin treat approve cliff kite leave furnace away",
-    "privatekey":"0xfc066b11d01ecf31a4e3102569f3645e0bd57a2ca3620569bef0752d98cdb4cd"
+    "address":"0xd796EFb65514cF5543C15A0F65e28BE74031992D",
+    "mnemonic":"choose video jewel feel thumb between alert current panel allow milk pass",
+    "privatekey":"0x132659df5807c7c6b88bf7f2e8de002a753a761dcc2b04e9404c31627f603a80"
   },
   "bob": {
-    "address":"0x9005F02371fceDfE66A92D6A66Ba84e5Db69f9B8",
-    "mnemonic":"begin upset talent olympic chat fold total vast birth fame glass local",
-    "privatekey":"0x891650bac7500ac8c22eb8aae13f64227a1198f024b422747efe1b870f1732af"
+    "address":"0xE26ecf813CECAEFb3Babc1B86fe6e92980a1A8BE",
+    "mnemonic":"glance empower layer ceiling forum grab whip total fever reduce obvious photo",
+    "privatekey":"0x8ab4251fc54d6337f8d9c1081679687fc3ba51de2aa42a460528fc36b01b938e"
   }
 }

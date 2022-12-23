@@ -1,16 +1,13 @@
-import
-{
-    ethers, Wallet
-} from "ethers";
-import {Address, TokenLike} from "zksync/build/types";
-import {SyncProvider , RestProvider} from "zksync";
+import { ethers, Wallet } from 'ethers';
+import { Address, TokenLike } from 'zksync/build/types';
+import { SyncProvider, RestProvider } from 'zksync';
 import * as fs from 'fs';
-import { createRestSyncProvider } from "./helper";
-import { Network } from "./types";
+import { createRestSyncProvider } from './helper';
+import { Network } from './types';
 
-let web3Url = "http://127.0.0.1:8545";
-const ERC20ABI = require("../constant/erc20.abi.json");
-const ethConfig = require("../constant/eth.json");
+let web3Url = 'http://127.0.0.1:8545';
+const ERC20ABI = require('../constant/erc20.abi.json');
+const ethConfig = require('../constant/eth.json');
 //const ethConfig = JSON.parse(fs.readFileSync("../constant/eth.json", { encoding: 'utf-8' }));
 export class EthClient {
     //public contract: ethers.Contract;
@@ -18,18 +15,13 @@ export class EthClient {
     public ethWallet: ethers.Wallet;
     public runningFee: ethers.BigNumber;
     public contracts: Map<string, ethers.Contract>;
-    constructor(
-        public network: Network,
-        public syncProvider: RestProvider
-    ) {
+    constructor(public network: Network, public syncProvider: RestProvider) {
         //this.contract = new ethers.Contract(syncProvider.contractAddress.mainContract, zksyncAbi, ethWallet);
-        this.ethProvider = network == 'localhost'
-            ? new ethers.providers.JsonRpcProvider(web3Url)
-            : ethers.getDefaultProvider(network);
-        this.ethWallet = ethers.Wallet.fromMnemonic(
-            ethConfig.test_mnemonic as string,
-                "m/44'/60'/0'/0/0"
-            ).connect(this.ethProvider);
+        this.ethProvider =
+            network == 'localhost' ? new ethers.providers.JsonRpcProvider(web3Url) : ethers.getDefaultProvider(network);
+        this.ethWallet = ethers.Wallet.fromMnemonic(ethConfig.test_mnemonic as string, "m/44'/60'/0'/0/0").connect(
+            this.ethProvider
+        );
         this.contracts = new Map<string, ethers.Contract>();
         this.runningFee = ethers.BigNumber.from(0);
     }
@@ -52,7 +44,7 @@ export class EthClient {
             const tokenAddress = this.syncProvider.tokenSet.resolveTokenAddress(token);
             //const resolvedAddress = await  this.ethProvider.resolveName(tokenAddress);
             //console.log(resolvedAddress, Provider.isProvider(this.ethProvider));
-            contract =  new ethers.Contract(tokenAddress, ERC20ABI, this.ethProvider);
+            contract = new ethers.Contract(tokenAddress, ERC20ABI, this.ethProvider);
             this.contracts.set(token, contract);
         }
         if (contract) {

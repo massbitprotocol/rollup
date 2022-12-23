@@ -1,6 +1,6 @@
-import {Tester} from "../../core/tests/ts-tests/tests/tester/tester";
-import {getDefaultRestProvider, RestProvider, types, Wallet} from "zksync";
-import * as ethers from "ethers";
+import { Tester } from '../../core/tests/ts-tests/tests/tester/tester';
+import { getDefaultRestProvider, RestProvider, types, Wallet } from 'zksync';
+import * as ethers from 'ethers';
 import '../../core/tests/ts-tests/tests/tester/priority-ops';
 import '../../core/tests/ts-tests/tests/tester/change-pub-key';
 import '../../core/tests/ts-tests/tests/tester/transfer';
@@ -8,15 +8,15 @@ import '../../core/tests/ts-tests/tests/tester/withdraw';
 import '../../core/tests/ts-tests/tests/tester/forced-exit';
 import '../../core/tests/ts-tests/tests/tester/mint-nft';
 import { expect } from 'chai';
-import path from "path";
+import path from 'path';
 import {
     depositToSyncFromEthereum,
     getRollupAccountInfo,
     getRollupAccountInfos,
     getRollupBalance,
     transferErc20Token
-} from "../src/demo/helper";
-import {EthClient} from "../src/demo/l1client";
+} from '../src/demo/helper';
+import { EthClient } from '../src/demo/l1client';
 
 describe('Massbit rollup demos', () => {
     let l1Client: EthClient;
@@ -98,27 +98,29 @@ describe('Massbit rollup demos', () => {
         nftFactoryContract = new ethers.Contract(nftFactoryAddress, nftFactoryInterface, alice.ethSigner());
          */
     });
-    it("Deposit ERC20 tokens to L2", async () => {
-        console.log("Balances of Alice:");
+    it('Deposit ERC20 tokens to L2', async () => {
+        console.log('Balances of Alice:');
         const rawAmount = 10;
         for (const token of ['ETH', 'DAI', 'wBTC']) {
             const amount = tester.syncProvider.tokenSet.parseToken(token, rawAmount.toString());
             const balanceBefore = await getRollupBalance(alice, token);
             const depositAmount = rawAmount * batchSize;
             for (let i = 0; i < batchSize; i++) {
-                await depositToSyncFromEthereum(tester.syncWallet, alice,token, amount, true);
+                await depositToSyncFromEthereum(tester.syncWallet, alice, token, amount, true);
             }
             const balanceAfter = await getRollupBalance(alice, token);
-            console.log(`Token: ${token}. Before deposit: ${balanceBefore}, After deposit: ${balanceAfter}; Deposit amount: ${depositAmount}`);
+            console.log(
+                `Token: ${token}. Before deposit: ${balanceBefore}, After deposit: ${balanceAfter}; Deposit amount: ${depositAmount}`
+            );
         }
         //Get account scope
-        let aliceFullAccountInfo = await getRollupAccountInfo(restProvider, alice.address(), "full");
-        let aliceCommitedAccountInfo = await getRollupAccountInfo(restProvider, alice.address(), "committed");
-        let aliceFinalizedAccountInfo = await getRollupAccountInfo(restProvider, alice.address(), "finalized");
-        console.log("Account infos:", aliceFullAccountInfo, aliceCommitedAccountInfo, aliceFinalizedAccountInfo);
-    })
+        let aliceFullAccountInfo = await getRollupAccountInfo(restProvider, alice.address(), 'full');
+        let aliceCommitedAccountInfo = await getRollupAccountInfo(restProvider, alice.address(), 'committed');
+        let aliceFinalizedAccountInfo = await getRollupAccountInfo(restProvider, alice.address(), 'finalized');
+        console.log('Account infos:', aliceFullAccountInfo, aliceCommitedAccountInfo, aliceFinalizedAccountInfo);
+    });
     it('Transfers ERC20 token', async () => {
-        const token = "DAI";
+        const token = 'DAI';
         const rawAmount = 2;
         const amount = tester.syncProvider.tokenSet.parseToken(token, rawAmount.toString());
         const aliceBefore = await getRollupBalance(alice, token);
@@ -131,14 +133,16 @@ describe('Massbit rollup demos', () => {
         const bobAfter = await getRollupBalance(bob, token);
         let aliceAccountInfos = await getRollupAccountInfos(restProvider, alice.address());
         let bobAccountInfos = await getRollupAccountInfos(restProvider, alice.address());
-        console.log("Alice account infos: ", aliceAccountInfos);
-        console.log("Bob account infos: ", bobAccountInfos);
-        console.log(`Sender token balances ${token}: Before transfer: ${aliceBefore}; After transfer: ${aliceAfter}; Amount: ${transferAmount}`);
+        console.log('Alice account infos: ', aliceAccountInfos);
+        console.log('Bob account infos: ', bobAccountInfos);
+        console.log(
+            `Sender token balances ${token}: Before transfer: ${aliceBefore}; After transfer: ${aliceAfter}; Amount: ${transferAmount}`
+        );
         console.log(`Receiver token balances ${token}: Before transfer: ${bobBefore}; After transfer: ${bobAfter}`);
-    })
+    });
 
     it('withdrawFromRollupToEthereum', async () => {
-        console.log("withdrawFromRollupToEthereum");
+        console.log('withdrawFromRollupToEthereum');
         /*
         const type = fastProcessing ? 'FastWithdraw' : 'Withdraw';
         const { totalFee: fee } = await this.syncProvider.getTransactionFee(type, wallet.address(), token);
@@ -160,9 +164,9 @@ describe('Massbit rollup demos', () => {
         this.runningFee = this.runningFee.add(fee);
         return handle;
          */
-    })
+    });
 
     it('withdrawFromEthereum without exit', async () => {
         console.log('withdrawFromEthereum');
-    })
-})
+    });
+});
