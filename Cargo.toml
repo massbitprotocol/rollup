@@ -26,6 +26,7 @@ members = [
     "core/lib/eth_client",
     "core/lib/eth_signer",
     "core/lib/gateway_watcher",
+    "core/lib/halo_proofs",
     "core/lib/prometheus_exporter",
     "core/lib/types",
     "core/lib/state",

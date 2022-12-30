@@ -1,0 +1,23 @@
+pub mod chips;
+pub mod circuits;
+pub mod eth_types;
+pub mod gadgets;
+pub mod hasher;
+pub mod instructions;
+pub mod keccak256;
+//pub mod params;
+pub mod state;
+pub mod tests;
+pub mod transactions;
+//use franklin_crypto::bellman::pairing::bn256;
+pub use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
+use zksync_crypto::merkle_tree::rescue_hasher;
+use zksync_types::{Account, SparseMerkleTree};
+//
+pub type Engine = Bn256;
+pub type Fp = halo2_proofs::halo2curves::pasta::pallas::Base;
+//pub type RescueHasher<T> = hasher::RescueHasher<T>;
+//pub type SimpleHasher = hasher::SimpleHasher;
+pub type KeccakHasher = keccak256::hasher::Keccak256Hasher;
+//pub type AccountTree = SparseMerkleTree<Account, Fp, RescueHasher<Engine>>;
+pub type AccountTree = SparseMerkleTree<Account, Fr, KeccakHasher>;
