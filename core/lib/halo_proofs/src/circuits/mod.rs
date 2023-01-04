@@ -1,1 +1,11 @@
 pub mod deposit;
+pub mod main_circuit;
+//pub mod merkle_circuit;
+pub mod evm_circuit;
+pub mod params;
+pub mod pi_circuit;
+pub mod state_circuit;
+pub mod test_util;
+pub use evm_circuit::*;
+pub use pi_circuit::*;
+pub use state_circuit::*;

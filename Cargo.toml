@@ -43,6 +43,15 @@ members = [
     "core/lib/notifier",
     "core/lib/api_types",
     "core/lib/balancer",
+    # From zkevm-circuits,
+    "core/lib/bus-mapping",
+    "core/lib/eth-types",
+    "core/lib/gadgets",
+    "core/lib/keccak256",
+    "core/lib/zkevm-circuits",
+    "core/lib/external-tracer",
+    "core/lib/geth-utils",
+    "core/lib/mock",
 
     # Test infrastructure
     "core/tests/flamegraph_target",

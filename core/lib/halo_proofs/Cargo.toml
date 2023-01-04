@@ -8,20 +8,28 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 ethers-core = "0.17.0"
+ethers-signers = { version = "1.0.2", optional = true }
 #halo2 = { git = "https://github.com/zcash/halo2.git", branch = "main" }
 #halo2_proofs = { version = "0.2.0" }
 #halo2_gadgets = { version = "0.2.0" }
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_09_10" }
 halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_09_10" }
+#halo2curves = { git = "https://github.com/privacy-scaling-explorations/halo2curves.git" }
 #zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", tag = "v0.0.7" }
 #eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main" }
 
+array-init = "2.0.0"
 itertools = "0.10.1"
 #ff = "0.12.1"
 rand = "0.8.5"
+rand_chacha = "0.3"
+rand_core = "0.6.4"
+rand_xorshift = "0.3"
+
 lazy_static = "1.4.0"
 libsecp256k1 = "0.7"
 log = "0.4.14"
+env_logger = "0.10"
 num = { version = "0.3.1", features = ["serde"] }
 num-bigint = "0.4.2"
 num-traits = "0.2.14"
@@ -34,6 +42,17 @@ serde_with = "1.12"
 uint = "0.9.1"
 tracing-test = "0.2"
 tracing = "0.1"
+strum = "0.24"
+strum_macros = "0.24"
+ark-std = { version = "0.3", features = ["print-trace"] }
+
+bus-mapping = { path = "../bus-mapping" }
+eth-types = { path = "../eth-types" }
+gadgets = { path = "../gadgets" }
+keccak256 = { path = "../keccak256" }
+mock = { path = "../mock" }
+zkevm-circuits = { path = "../zkevm-circuits" }
+
 zksync_circuit = { path = "../circuit", version = "1.0" }
 zksync_state = { path = "../state", version = "1.0" }
 zksync_types = { path = "../types", version = "1.0" }
@@ -60,3 +79,7 @@ default = []
 asm = []
 prefetch = []
 
+[dev-dependencies]
+pretty_assertions = "1.0.0"
+ctor = "0.1.22"
+ethers-signers = "0.17.0"

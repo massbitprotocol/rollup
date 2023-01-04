@@ -24,6 +24,7 @@ use std::marker::PhantomData;
 //   "*" = copy
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DepositConfig {
+    //Public columns: contains merkle tree path
     instance: Column<Instance>,
     advices: [Column<Advice>; 3],
     selectors: [Selector; 4],
@@ -94,14 +95,17 @@ impl<F: FieldExt> DepositInstructions<F> for DepositChip<F> {
     }
 
     fn load_state<S: State<F>>(&self, layouter: impl Layouter<F>, state: &S) -> Result<(), Error> {
+        /*
         layouter.assign_region(
             || "Load state",
             |mut region| {
-                egion
+                region
                     .assign_advice(|| "private input", config.advice[0], 0, || value)
                     .map(Number)
             },
         );
+        */
+        Ok(())
     }
     fn load_constant(&self, layouter: impl Layouter<F>) -> Result<(), Error> {
         Ok(())

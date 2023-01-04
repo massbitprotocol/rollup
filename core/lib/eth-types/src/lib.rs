@@ -16,11 +16,11 @@
 pub mod macros;
 #[macro_use]
 pub mod error;
-//#[macro_use]
-//pub mod bytecode;
-//pub mod evm_types;
-//pub mod geth_types;
-//pub mod sign_types;
+#[macro_use]
+pub mod bytecode;
+pub mod evm_types;
+pub mod geth_types;
+pub mod sign_types;
 
 pub use bytecode::Bytecode;
 pub use error::Error;
@@ -415,7 +415,7 @@ pub struct GethExecTrace {
 macro_rules! address {
     ($addr_hex:expr) => {{
         use std::str::FromStr;
-        $crate::eth_types::Address::from_str(&$addr_hex).expect("invalid hex Address")
+        $crate::Address::from_str(&$addr_hex).expect("invalid hex Address")
     }};
 }
 
@@ -423,7 +423,7 @@ macro_rules! address {
 /// Create a [`Word`] from a hex string.  Panics on invalid input.
 macro_rules! word {
     ($word_hex:expr) => {
-        $crate::eth_types::Word::from_str_radix(&$word_hex, 16).expect("invalid hex Word")
+        $crate::Word::from_str_radix(&$word_hex, 16).expect("invalid hex Word")
     };
 }
 

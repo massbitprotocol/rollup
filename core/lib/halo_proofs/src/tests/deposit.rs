@@ -1,8 +1,3 @@
-use halo2_proofs::{
-    circuit::{Layouter, SimpleFloorPlanner, Value},
-    dev::MockProver,
-    plonk::{Circuit, ConstraintSystem, Error},
-};
 use zksync_basic_types::{AccountId, BlockNumber, TokenId};
 use zksync_circuit::witness::WitnessBuilder;
 use zksync_types::{Deposit, DepositOp};

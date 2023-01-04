@@ -9,7 +9,7 @@ use halo2_proofs::halo2curves::{
 
 //use halo2_proofs::pasta::group::ff::PrimeField;
 use halo2_gadgets::sinsemilla::primitives::CommitDomain;
-use halo2_gadgets::sinsemilla::CommitDomains;
+//use halo2_gadgets::sinsemilla::CommitDomains;
 
 use lazy_static::lazy_static;
 
