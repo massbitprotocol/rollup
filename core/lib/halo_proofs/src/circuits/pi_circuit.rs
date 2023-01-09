@@ -176,7 +176,7 @@ pub struct PiCircuitConfig<F: Field> {
     tx_id_inv: Column<Advice>,
     tx_value_inv: Column<Advice>,
     tx_id_diff_inv: Column<Advice>,
-    fixed_u16: Column<Fixed>,
+    fixed_u10: Column<Fixed>,
     calldata_gas_cost: Column<Advice>,
     is_final: Column<Advice>,
 
@@ -236,7 +236,9 @@ impl<F: Field> SubCircuitConfig<F> for PiCircuitConfig<F> {
         // lies in the interval [0, 2^16] if their tx_id both do not equal to zero.
         // We do not use 2^8 for the reason that a large block may have more than
         // 2^8 transfer transactions which have 21000*2^8 (~ 5.376M) gas.
-        let fixed_u16 = meta.fixed_column();
+        //let fixed_u16 = meta.fixed_column();
+        //First support small block with less then 2^10 = 1024 transactions
+        let fixed_u10 = meta.fixed_column();
         let calldata_gas_cost = meta.advice_column();
         let is_final = meta.advice_column();
 
@@ -373,12 +375,12 @@ impl<F: Field> SubCircuitConfig<F> for PiCircuitConfig<F> {
             tx_id_diff_inv,
         );
 
-        meta.lookup_any("tx_id_diff", |meta| {
+        let ind = meta.lookup_any("tx_id_diff", |meta| {
             let tx_id_next = meta.query_advice(tx_id, Rotation::next());
             let tx_id = meta.query_advice(tx_id, Rotation::cur());
             let tx_id_inv_next = meta.query_advice(tx_id_inv, Rotation::next());
             let tx_id_diff_inv = meta.query_advice(tx_id_diff_inv, Rotation::cur());
-            let fixed_u16_table = meta.query_fixed(fixed_u16, Rotation::cur());
+            let fixed_u10_table = meta.query_fixed(fixed_u10, Rotation::cur());
 
             let tx_id_next_nonzero = tx_id_next.expr() * tx_id_inv_next;
             let tx_id_not_equal_to_next = (tx_id_next.expr() - tx_id.expr()) * tx_id_diff_inv;
@@ -386,10 +388,13 @@ impl<F: Field> SubCircuitConfig<F> for PiCircuitConfig<F> {
 
             vec![(
                 tx_id_diff_minus_one * tx_id_next_nonzero * tx_id_not_equal_to_next,
-                fixed_u16_table,
+                fixed_u10_table,
             )]
         });
-
+        println!(
+            "PiCircuitConfig Add lookup tx_id_diff in constraint system at index {}",
+            ind
+        );
         meta.create_gate("calldata constraints", |meta| {
             let q_is_calldata = meta.query_selector(q_tx_calldata);
             let q_calldata_start = meta.query_selector(q_calldata_start);
@@ -492,7 +497,7 @@ impl<F: Field> SubCircuitConfig<F> for PiCircuitConfig<F> {
             },
         );
 
-        meta.lookup_any("gas_cost in tx table", |meta| {
+        let ind = meta.lookup_any("gas_cost in tx table", |meta| {
             let q_tx_table = meta.query_selector(q_tx_table);
             let is_final = meta.query_advice(is_final, Rotation::cur());
 
@@ -521,7 +526,10 @@ impl<F: Field> SubCircuitConfig<F> for PiCircuitConfig<F> {
                 ),
             ]
         });
-
+        println!(
+            "PiCircuitConfig Add lookup gas_cost in tx table in constraint system at index {}",
+            ind
+        );
         Self {
             max_txs,
             max_calldata,
@@ -534,7 +542,7 @@ impl<F: Field> SubCircuitConfig<F> for PiCircuitConfig<F> {
             tx_id_inv,
             tx_value_inv,
             tx_id_diff_inv,
-            fixed_u16,
+            fixed_u10,
             calldata_gas_cost,
             is_final,
             raw_public_inputs,
@@ -620,6 +628,7 @@ impl<F: Field> PiCircuitConfig<F> {
         tx_value: F,
         raw_pi_vals: &mut [F],
     ) -> Result<(), Error> {
+        println!("TxFieldTag: {:?}; assign_tx_row {:?}", &tag, &tx_value);
         let tx_id = F::from(tx_id as u64);
         // tx_id_inv = (tag - CallDataLength)^(-1)
         let tx_id_inv = if tag != TxFieldTag::CallDataLength {
@@ -1116,6 +1125,52 @@ impl<F: Field> PiCircuit<F> {
             public_data,
         }
     }
+    fn synthesize_fixed_u10_region(
+        &self,
+        config: &PiCircuitConfig<F>,
+        _challenges: &Challenges<Value<F>>,
+        layouter: &mut impl Layouter<F>,
+    ) -> Result<(), Error> {
+        layouter.assign_region(
+            || "fixed u10 table",
+            |mut region| {
+                for i in 0..(1 << 10) {
+                    region.assign_fixed(
+                        || format!("row_{}", i),
+                        config.fixed_u10,
+                        i,
+                        || Value::known(F::from(i as u64)),
+                    )?;
+                }
+
+                Ok(())
+            },
+        )?;
+        Ok(())
+    }
+    fn synthesize_fixed_u16_region(
+        &self,
+        config: &PiCircuitConfig<F>,
+        _challenges: &Challenges<Value<F>>,
+        layouter: &mut impl Layouter<F>,
+    ) -> Result<(), Error> {
+        // layouter.assign_region(
+        //     || "fixed u16 table",
+        //     |mut region| {
+        //         for i in 0..(1 << 16) {
+        //             region.assign_fixed(
+        //                 || format!("row_{}", i),
+        //                 config.fixed_u8,
+        //                 i,
+        //                 || Value::known(F::from(i as u64)),
+        //             )?;
+        //         }
+
+        //         Ok(())
+        //     },
+        // )?;
+        Ok(())
+    }
 }
 
 impl<F: Field> SubCircuit<F> for PiCircuit<F> {
@@ -1137,6 +1192,10 @@ impl<F: Field> SubCircuit<F> for PiCircuit<F> {
                 base_fee: block.context.base_fee,
             },
         };
+        println!(
+            "Pi circuit params {:?}. Public data {:?}",
+            &block.circuits_params, &public_data
+        );
         PiCircuit::new(
             block.circuits_params.max_txs,
             block.circuits_params.max_calldata,
@@ -1191,24 +1250,10 @@ impl<F: Field> SubCircuit<F> for PiCircuit<F> {
     fn synthesize_sub(
         &self,
         config: &Self::Config,
-        _challenges: &Challenges<Value<F>>,
+        challenges: &Challenges<Value<F>>,
         layouter: &mut impl Layouter<F>,
     ) -> Result<(), Error> {
-        layouter.assign_region(
-            || "fixed u16 table",
-            |mut region| {
-                for i in 0..(1 << 16) {
-                    region.assign_fixed(
-                        || format!("row_{}", i),
-                        config.fixed_u16,
-                        i,
-                        || Value::known(F::from(i as u64)),
-                    )?;
-                }
-
-                Ok(())
-            },
-        )?;
+        self.synthesize_fixed_u10_region(config, challenges, layouter)?;
         let pi_cells = layouter.assign_region(
             || "region 0",
             |mut region| {

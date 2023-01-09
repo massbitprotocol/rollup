@@ -1,11 +1,13 @@
+//! The state circuit implementation.
 mod constraint_builder;
 mod lexicographic_ordering;
 mod lookups;
 mod multiple_precision_integer;
 mod random_linear_combination;
+#[cfg(test)]
 mod test;
 use super::params::N_BYTES_WORD;
-use constraint_builder::{ConstraintBuilder, MptUpdateTableQueries, Queries, RwTableQueries};
+use constraint_builder::{ConstraintBuilder, Queries};
 use eth_types::{Address, Field};
 use gadgets::binary_number::{BinaryNumberChip, BinaryNumberConfig};
 use halo2_proofs::{
@@ -17,24 +19,33 @@ use halo2_proofs::{
     poly::Rotation,
 };
 use lexicographic_ordering::Config as LexicographicOrderingConfig;
-use lexicographic_ordering::LimbIndex;
 use lookups::{Chip as LookupsChip, Config as LookupsConfig, Queries as LookupsQueries};
 use multiple_precision_integer::{Chip as MpiChip, Config as MpiConfig, Queries as MpiQueries};
 use random_linear_combination::{Chip as RlcChip, Config as RlcConfig, Queries as RlcQueries};
-use std::{collections::HashMap, iter::once, marker::PhantomData};
-use zkevm_circuits::table::{LookupTable, MptTable, RwTable, RwTableTag};
-use zkevm_circuits::util::{Challenges, Expr, SubCircuit, SubCircuitConfig};
-use zkevm_circuits::witness::{self, MptUpdates, Rw, RwMap};
+#[cfg(test)]
+use std::collections::HashMap;
+use std::{iter::once, marker::PhantomData};
+use zkevm_circuits::{
+    table::{LookupTable, MptTable, RwTable, RwTableTag},
+    util::{Challenges, Expr, SubCircuit, SubCircuitConfig},
+    witness::{self, MptUpdates, Rw, RwMap},
+};
+
+use self::{
+    constraint_builder::{MptUpdateTableQueries, RwTableQueries},
+    lexicographic_ordering::LimbIndex,
+};
 
 const N_LIMBS_RW_COUNTER: usize = 2;
 const N_LIMBS_ACCOUNT_ADDRESS: usize = 10;
 const N_LIMBS_ID: usize = 2;
-const N_LIMBS_INDEX: usize = 5;
+const N_LIMBS_INDEX: usize = 6;
 /// Config for StateCircuit
 #[derive(Clone)]
 pub struct StateCircuitConfig<F> {
     // Figure out why you get errors when this is Selector.
     selector: Column<Fixed>,
+    // https://github.com/privacy-scaling-explorations/zkevm-circuits/issues/407
     rw_table: RwTable,
     sort_keys: SortKeysConfig,
     // Assigned value at the start of the block. For Rw::Account and
@@ -56,6 +67,7 @@ pub struct StateCircuitConfig<F> {
     mpt_table: MptTable,
 }
 
+/// Circuit configuration arguments
 pub struct StateCircuitConfigArgs<F: Field> {
     /// RwTable
     pub rw_table: RwTable,
@@ -64,6 +76,7 @@ pub struct StateCircuitConfigArgs<F: Field> {
     /// Challenges
     pub challenges: Challenges<Expression<F>>,
 }
+
 impl<F: Field> SubCircuitConfig<F> for StateCircuitConfig<F> {
     type ConfigArgs = StateCircuitConfigArgs<F>;
 
@@ -111,6 +124,7 @@ impl<F: Field> SubCircuitConfig<F> for StateCircuitConfig<F> {
             lookups,
             challenges.evm_word_powers_of_randomness(),
         );
+
         let config = Self {
             selector,
             sort_keys,
@@ -124,6 +138,7 @@ impl<F: Field> SubCircuitConfig<F> for StateCircuitConfig<F> {
             rw_table,
             mpt_table,
         };
+
         let mut constraint_builder = ConstraintBuilder::new();
         meta.create_gate("state circuit constraints", |meta| {
             let queries = queries(meta, &config);
@@ -131,12 +146,13 @@ impl<F: Field> SubCircuitConfig<F> for StateCircuitConfig<F> {
             constraint_builder.gate(queries.selector)
         });
         for (name, lookup) in constraint_builder.lookups() {
-            let ind = meta.lookup_any(name, |_| lookup);
-            println!("State circuit add lookup {} to CS at index {}", name, ind);
+            meta.lookup_any(name, |_| lookup);
         }
+
         config
     }
 }
+
 impl<F: Field> StateCircuitConfig<F> {
     /// load fixed tables
     pub(crate) fn load_aux_tables(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
@@ -215,7 +231,7 @@ impl<F: Field> StateCircuitConfig<F> {
                     .assign(region, offset, row, prev_row)?;
                 let is_first_access =
                     !matches!(index, LimbIndex::RwCounter0 | LimbIndex::RwCounter1);
-                //println!("Limbindex :{:?}", &index);
+
                 region.assign_advice(
                     || "not_first_access",
                     self.not_first_access,
@@ -230,10 +246,6 @@ impl<F: Field> StateCircuitConfig<F> {
                         .map(|(randomness, mut state_root)| {
                             if let Some(update) = updates.get(prev_row) {
                                 let (new_root, old_root) = update.root_assignments(randomness);
-                                // println!(
-                                //     "state_circuit state_root {:?} old_root {:?}. Prev_row {:?}, update: {:?}",
-                                //     &state_root, &old_root, prev_row, &update
-                                // );
                                 assert_eq!(state_root, old_root);
                                 state_root = new_root;
                             }
@@ -328,6 +340,7 @@ pub struct SortKeysConfig {
 }
 
 type Lookup<F> = (&'static str, Expression<F>, Expression<F>);
+
 /// State Circuit for proving RwTable is valid
 #[derive(Default, Clone, Debug)]
 pub struct StateCircuit<F> {
@@ -345,7 +358,6 @@ impl<F: Field> StateCircuit<F> {
     pub fn new(rw_map: RwMap, n_rows: usize) -> Self {
         let rows = rw_map.table_assignments();
         let updates = MptUpdates::mock_from(&rows);
-        //println!("State update {:?}", updates);
         Self {
             rows,
             updates,
@@ -373,6 +385,7 @@ impl<F: Field> SubCircuit<F> for StateCircuit<F> {
         layouter: &mut impl Layouter<F>,
     ) -> Result<(), Error> {
         config.load_aux_tables(layouter)?;
+
         let randomness = challenges.evm_word();
 
         // Assigning to same columns in different regions should be avoided.
@@ -426,6 +439,7 @@ impl<F: Field> SubCircuit<F> for StateCircuit<F> {
         vec![]
     }
 }
+
 #[cfg(any(feature = "test", test))]
 impl<F: Field> Circuit<F> for StateCircuit<F>
 where
@@ -467,6 +481,7 @@ where
         self.synthesize_sub(&config, &challenges, &mut layouter)
     }
 }
+
 fn queries<F: Field>(meta: &mut VirtualCells<'_, F>, c: &StateCircuitConfig<F>) -> Queries<F> {
     let first_different_limb = c.lexicographic_ordering.first_different_limb;
     let final_bits_sum = meta.query_advice(first_different_limb.bits[3], Rotation::cur())
@@ -535,3 +550,135 @@ fn queries<F: Field>(meta: &mut VirtualCells<'_, F>, c: &StateCircuitConfig<F>) 
         state_root_prev: meta.query_advice(c.state_root, Rotation::prev()),
     }
 }
+/*
+#[cfg(test)]
+mod state_circuit_stats {
+    use crate::circuits::evm_circuit::EvmCircuit;
+    use bus_mapping::{circuit_input_builder::ExecState, mock::BlockData};
+    use eth_types::{bytecode, evm_types::OpcodeId, geth_types::GethData, Address};
+    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_proofs::plonk::{Circuit, ConstraintSystem};
+    use mock::{eth, test_ctx::TestContext, MOCK_ACCOUNTS};
+    use strum::IntoEnumIterator;
+    use zkevm_circuits::evm_circuit::step::ExecutionState;
+
+    /// This function prints to stdout a table with all the implemented states
+    /// and their responsible opcodes with the following stats:
+    /// - height: number of rows in the State circuit used by the execution
+    ///   state
+    /// - gas: gas value used for the opcode execution
+    /// - height/gas: ratio between circuit cost and gas cost
+    ///
+    /// Run with:
+    /// `cargo test -p zkevm-circuits --release get_state_states_stats --
+    /// --nocapture --ignored`
+    #[ignore]
+    #[test]
+    pub fn get_state_states_stats() {
+        // Get the list of implemented execution states by configuring the EVM Circuit
+        // and querying the step height for each possible execution state (only those
+        // implemented will return a Some value).
+        let mut meta = ConstraintSystem::<Fr>::default();
+        let circuit = EvmCircuit::configure(&mut meta);
+
+        let mut implemented_states = Vec::new();
+        for state in ExecutionState::iter() {
+            let height = circuit.execution.get_step_height_option(state);
+            if height.is_some() {
+                implemented_states.push(state);
+            }
+        }
+
+        let mut stats = Vec::new();
+        for state in implemented_states {
+            for opcode in state.responsible_opcodes() {
+                let mut code = bytecode! {
+                    PUSH2(0x100)
+                    MLOAD // Expand memory a bit
+                    PUSH2(0x00)
+                    EXTCODESIZE // Warm up 0x0 address
+                    PUSH2(0x8000)
+                    PUSH2(0x00)
+                    PUSH2(0x10)
+                    PUSH2(0x20)
+                    PUSH2(0x30)
+                };
+                // Make sure that opcodes that take an address as argument use addres 0x0, which
+                // will exist in the test.
+                match opcode {
+                    OpcodeId::BALANCE
+                    | OpcodeId::EXTCODESIZE
+                    | OpcodeId::EXTCODECOPY
+                    | OpcodeId::SELFDESTRUCT
+                    | OpcodeId::EXTCODEHASH => code.append(&bytecode! {
+                        PUSH2(0x40)
+                        PUSH2(0x00)
+                    }),
+                    OpcodeId::CALL
+                    | OpcodeId::CALLCODE
+                    | OpcodeId::DELEGATECALL
+                    | OpcodeId::STATICCALL => code.append(&bytecode! {
+                        PUSH2(0x00)
+                        PUSH2(0x50)
+                    }),
+                    _ => code.append(&bytecode! {
+                        PUSH2(0x40)
+                        PUSH2(0x50)
+                    }),
+                };
+                code.write_op(opcode);
+                code.write_op(OpcodeId::STOP);
+                let block: GethData = TestContext::<3, 1>::new(
+                    None,
+                    |accs| {
+                        accs[0]
+                            .address(MOCK_ACCOUNTS[0])
+                            .balance(eth(10))
+                            .code(code.clone());
+                        accs[1].address(MOCK_ACCOUNTS[1]).balance(eth(10));
+                        accs[2].address(Address::zero()).balance(eth(10)).code(code);
+                    },
+                    |mut txs, accs| {
+                        txs[0]
+                            .from(accs[1].address)
+                            .to(accs[0].address)
+                            .input(vec![1, 2, 3, 4, 5, 6, 7].into());
+                    },
+                    |block, _tx| block.number(0xcafeu64),
+                )
+                .unwrap()
+                .into();
+                let mut builder =
+                    BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
+                builder
+                    .handle_block(&block.eth_block, &block.geth_traces)
+                    .unwrap();
+                let step_index = 1 + 11; // 1 is for the BeginTx, 11 for the bytecode opcodes.
+                let step = &builder.block.txs[0].steps()[step_index];
+                let step_next = &builder.block.txs[0].steps()[step_index + 1];
+                assert_eq!(ExecState::Op(opcode), step.exec_state);
+                let h = step_next.rwc.0 - step.rwc.0;
+
+                let gas_cost = block.geth_traces[0].struct_logs[11].gas_cost.0;
+                stats.push((state, opcode, h, gas_cost));
+            }
+        }
+
+        println!(
+            "| {: <14} | {: <14} | {: <2} | {: >6} | {: <5} |",
+            "state", "opcode", "h", "g", "h/g"
+        );
+        println!("| ---            | ---            | ---|    --- | ---   |");
+        for (state, opcode, height, gas_cost) in stats {
+            println!(
+                "| {: <14?} | {: <14?} | {: >2} | {: >6} | {: >1.3} |",
+                state,
+                opcode,
+                height,
+                gas_cost,
+                height as f64 / gas_cost as f64
+            );
+        }
+    }
+}
+ */

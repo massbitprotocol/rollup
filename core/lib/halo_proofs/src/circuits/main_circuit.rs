@@ -11,9 +11,9 @@ use halo2_proofs::{
     plonk::{Circuit, ConstraintSystem, Error, Expression},
 };
 
+use super::evm_circuit::table::FixedTableTag;
 use std::array;
 use strum::IntoEnumIterator;
-use zkevm_circuits::evm_circuit::table::FixedTableTag;
 use zkevm_circuits::table::{
     BlockTable, BytecodeTable, CopyTable, ExpTable, KeccakTable, MptTable, RwTable, TxTable,
 };
@@ -143,6 +143,10 @@ impl<F: Field, const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_RWS: u
             Value::known(block.randomness),
             Value::known(block.randomness),
         );
+        // println!(
+        //     "Main circuit synthesize with block params {:?}",
+        //     block.circuits_params
+        // );
         self.state_circuit
             .synthesize_sub(&config.state_circuit, &challenges, &mut layouter)?;
         self.evm_circuit
@@ -165,7 +169,7 @@ impl<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_RWS: usize>
     #[allow(clippy::type_complexity)]
     pub fn build(
         geth_data: GethData,
-    ) -> Result<(u32, Self, Vec<Fr>, CircuitInputBuilder), bus_mapping::Error> {
+    ) -> Result<(u32, Self, Vec<Vec<Fr>>, CircuitInputBuilder), bus_mapping::Error> {
         let block_data = BlockData::new_from_geth_data_with_params(
             geth_data.clone(),
             CircuitsParams {
@@ -191,7 +195,7 @@ impl<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_RWS: usize>
     /// the Public Inputs needed.
     pub fn build_from_circuit_input_builder(
         builder: &CircuitInputBuilder,
-    ) -> Result<(u32, Self, Vec<Fr>), bus_mapping::Error> {
+    ) -> Result<(u32, Self, Vec<Vec<Fr>>), bus_mapping::Error> {
         let mut block = block_convert(&builder.block, &builder.code_db).unwrap();
         block.randomness = Fr::from(MOCK_RANDOMNESS);
         let fixed_table_tags: Vec<FixedTableTag> = FixedTableTag::iter().collect();
@@ -213,8 +217,11 @@ impl<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_RWS: usize>
             .sum::<usize>();
         let k = k.max(log2_ceil(64 + bytecodes_len));
         let k = k.max(log2_ceil(64 + num_rows_required));
-        log::debug!("main circuit uses k = {}", k);
-
+        println!(
+            "bytecodes len={}; num_rows_required={}; main circuit uses k = {}",
+            bytecodes_len, num_rows_required, k
+        );
+        log::info!("main circuit uses k = {}", k);
         let evm_circuit = EvmCircuit::new_from_block(&block);
         let state_circuit = StateCircuit::new_from_block(&block);
         let pi_circuit = PiCircuit::new_from_block(&block);
@@ -227,13 +234,12 @@ impl<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_RWS: usize>
         let instance = circuit.instance();
         Ok((k, circuit, instance))
     }
-    pub fn instance(&self) -> Vec<Fr> {
+    pub fn instance(&self) -> Vec<Vec<Fr>> {
         // SignVerifyChip -> ECDSAChip -> MainGate instance column
         let pi_instance = self.pi_circuit.instance();
         //let instance = vec![pi_instance[0].clone(), vec![]];
-        //let instance = vec![pi_instance[0].clone()];
-        //instance
-        pi_instance[0].clone()
+        let instance = vec![pi_instance[0].clone()];
+        instance
     }
 }
 
@@ -261,7 +267,9 @@ mod main_circuit_tests {
     use rand_chacha::ChaCha20Rng;
     use rand_xorshift::XorShiftRng;
     use std::collections::HashMap;
+    use std::env::var;
     use std::slice;
+
     #[test]
     fn main_circuit_degree() {
         let mut cs = ConstraintSystem::<Fr>::default();
@@ -316,6 +324,21 @@ mod main_circuit_tests {
         block.sign(&wallets);
 
         let (k, circuit, instance, _) = MainCircuit::<_, 1, 32, 256>::build(block).unwrap();
+        //Instance length must equals constraint.num_instance_column
+
+        match MockProver::run(17, &circuit, instance.clone()) {
+            Ok(prover) => {
+                let res = prover.verify_par();
+                if let Err(err) = res {
+                    error!("Verification failures: {:#?}", err);
+                    panic!("Failed verification");
+                }
+            }
+            Err(err) => {
+                panic!("MockProver run failed {:?}", &err);
+            }
+        }
+
         // Initialize the polynomial commitment parameters
         let mut rng = XorShiftRng::from_seed([
             0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
@@ -329,19 +352,18 @@ mod main_circuit_tests {
         end_timer!(start1);
         // Initialize the proving key
         let vk = keygen_vk(&general_params, &circuit).expect("keygen_vk should not fail");
+        println!("Finish gen verification key");
         let pk = keygen_pk(&general_params, vk, &circuit).expect("keygen_pk should not fail");
         // Create a proof
         let mut transcript = Blake2bWrite::<_, G1Affine, Challenge255<_>>::init(vec![]);
 
         // Bench proof generation time
-        let proof_message = format!(
-            "Packed Multi-Keccak Proof generation with degree = {}",
-            degree
-        );
-        let ref_instance = instance
-            .iter()
-            .map(|elm| slice::from_ref(elm))
-            .collect::<Vec<&[Fr]>>();
+        let proof_message = format!("Main Circuit Proof generation with degree = {}", degree);
+        //println!("Public instance: {:?}", &instance);
+        //let instances: Vec<&[Fr]> = instance.iter().map(|v| v.as_slice()).collect();
+        //let ref_instance = instance.iter().map(|elm| elm).collect::<Vec<&Fr>>();
+        //let instances = instance.as_slice();
+        let instances: Vec<&[Fr]> = instance.iter().map(|v| &v[..]).collect();
         let start2 = start_timer!(|| proof_message);
         create_proof::<
             KZGCommitmentScheme<Bn256>,
@@ -354,7 +376,7 @@ mod main_circuit_tests {
             &general_params,
             &pk,
             &[circuit],
-            slice::from_ref(&ref_instance.as_slice()),
+            &[&instances],
             rng,
             &mut transcript,
         )
@@ -377,25 +399,10 @@ mod main_circuit_tests {
             &verifier_params,
             pk.get_vk(),
             strategy,
-            slice::from_ref(&ref_instance.as_slice()),
+            &[&instances],
             &mut verifier_transcript,
         )
         .expect("failed to verify bench circuit");
         end_timer!(start3);
-
-        //Instance length must equals constraint.num_instance_column
-
-        // match MockProver::run(k, &circuit, instance) {
-        //     Ok(prover) => {
-        //         let res = prover.verify_par();
-        //         if let Err(err) = res {
-        //             error!("Verification failures: {:#?}", err);
-        //             panic!("Failed verification");
-        //         }
-        //     }
-        //     Err(err) => {
-        //         panic!("MockProver run failed {:?}", &err);
-        //     }
-        // }
     }
 }

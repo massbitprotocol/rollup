@@ -13,7 +13,7 @@ pub struct Config {
     // Can these be TableColumn's?
     // https://github.com/zcash/halo2/blob/642efc1536d3ea2566b04814bd60a00c4745ae22/halo2_proofs/src/plonk/circuit.rs#L266
     u8: Column<Fixed>,
-    u10: Column<Fixed>,
+    u10: Column<Fixed>, //For storage ethereum address of type H160
     u16: Column<Fixed>,
     pub call_context_field_tag: Column<Fixed>,
 }
@@ -25,10 +25,11 @@ impl Config {
         msg: &'static str,
         exp_fn: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup_any(msg, |meta| {
+        let ind = meta.lookup_any(msg, |meta| {
             let exp = exp_fn(meta);
             vec![(exp, meta.query_fixed(self.u8, Rotation::cur()))]
         });
+        //println!("Lookups range_check_u8 add lookup {} at index {}", msg, ind);
     }
     pub fn range_check_u10<F: Field>(
         &self,
@@ -36,10 +37,14 @@ impl Config {
         msg: &'static str,
         exp_fn: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup_any(msg, |meta| {
+        let ind = meta.lookup_any(msg, |meta| {
             let exp = exp_fn(meta);
             vec![(exp, meta.query_fixed(self.u10, Rotation::cur()))]
         });
+        // println!(
+        //     "Lookups range_check_u10 add lookup {} at index {}",
+        //     msg, ind
+        // );
     }
     pub fn range_check_u16<F: Field>(
         &self,
@@ -87,6 +92,11 @@ impl<F: Field> Chip<F> {
     }
 
     pub fn configure(meta: &mut ConstraintSystem<F>) -> Config {
+        println!(
+            "Fixed column before config Lookup:{}",
+            meta.num_fixed_columns()
+        );
+        println!("Fixed queries: {:?}", meta.fixed_queries());
         Config {
             u8: meta.fixed_column(),
             u10: meta.fixed_column(),

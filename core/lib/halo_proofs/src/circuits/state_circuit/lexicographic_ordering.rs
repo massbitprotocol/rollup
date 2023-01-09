@@ -1,4 +1,6 @@
-use super::{lookups, SortKeysConfig, N_LIMBS_ACCOUNT_ADDRESS, N_LIMBS_ID, N_LIMBS_RW_COUNTER};
+use super::{
+    lookups, SortKeysConfig, N_LIMBS_ACCOUNT_ADDRESS, N_LIMBS_ID, N_LIMBS_INDEX, N_LIMBS_RW_COUNTER,
+};
 use crate::circuits::params::N_BYTES_WORD;
 use eth_types::{Field, ToBigEndian};
 use gadgets::binary_number::{AsBits, BinaryNumberChip, BinaryNumberConfig};
@@ -48,6 +50,16 @@ pub enum LimbIndex {
     Tag,
     Id1,
     Id0,
+    // Address19,
+    // Address18,
+    // Address17,
+    // Address16,
+    // Address15,
+    // Address14,
+    // Address13,
+    // Address12,
+    // Address11,
+    // Address10,
     Address9,
     Address8,
     Address7,
@@ -81,12 +93,12 @@ pub enum LimbIndex {
 
 impl_expr!(LimbIndex);
 
-impl AsBits<5> for LimbIndex {
-    fn as_bits(&self) -> [bool; 5] {
-        let mut bits = [false; 5];
-        let mut x = *self as u8;
-        for i in 0..5 {
-            bits[4 - i] = x % 2 == 1;
+impl AsBits<N_LIMBS_INDEX> for LimbIndex {
+    fn as_bits(&self) -> [bool; N_LIMBS_INDEX] {
+        let mut bits = [false; N_LIMBS_INDEX];
+        let mut x = *self as u16;
+        for i in 0..N_LIMBS_INDEX {
+            bits[N_LIMBS_INDEX - 1 - i] = x % 2 == 1;
             x /= 2;
         }
         assert_eq!(x, 0);
@@ -97,7 +109,7 @@ impl AsBits<5> for LimbIndex {
 #[derive(Clone, Copy)]
 pub struct Config {
     pub(crate) selector: Column<Fixed>,
-    pub first_different_limb: BinaryNumberConfig<LimbIndex, 5>,
+    pub first_different_limb: BinaryNumberConfig<LimbIndex, N_LIMBS_INDEX>,
     limb_difference: Column<Advice>,
     limb_difference_inverse: Column<Advice>,
 }

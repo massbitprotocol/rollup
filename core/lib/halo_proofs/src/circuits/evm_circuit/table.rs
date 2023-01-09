@@ -19,9 +19,9 @@ pub enum FixedTableTag {
     Range512,
     Range1024,
     SignByte,
-    BitwiseAnd,
-    BitwiseOr,
-    BitwiseXor,
+    // BitwiseAnd,
+    // BitwiseOr,
+    // BitwiseXor,
     //ResponsibleOpcode,
     Pow2,
     ConstantGasCost,
@@ -63,15 +63,15 @@ impl FixedTableTag {
                     F::zero(),
                 ]
             })),
-            Self::BitwiseAnd => Box::new((0..256).flat_map(move |lhs| {
-                (0..256).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs & rhs)])
-            })),
-            Self::BitwiseOr => Box::new((0..256).flat_map(move |lhs| {
-                (0..256).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs | rhs)])
-            })),
-            Self::BitwiseXor => Box::new((0..256).flat_map(move |lhs| {
-                (0..256).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs ^ rhs)])
-            })),
+            // Self::BitwiseAnd => Box::new((0..256).flat_map(move |lhs| {
+            //     (0..256).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs & rhs)])
+            // })),
+            // Self::BitwiseOr => Box::new((0..256).flat_map(move |lhs| {
+            //     (0..256).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs | rhs)])
+            // })),
+            // Self::BitwiseXor => Box::new((0..256).flat_map(move |lhs| {
+            //     (0..256).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs ^ rhs)])
+            // })),
             /*
             Self::ResponsibleOpcode => {
                 Box::new(ExecutionState::iter().flat_map(move |execution_state| {

@@ -179,8 +179,16 @@ impl<'a> CircuitInputBuilder {
         // accumulates gas across all txs in the block
         for (tx_index, tx) in eth_block.transactions.iter().enumerate() {
             let geth_trace = &geth_traces[tx_index];
+            // println!(
+            //     "HANDLE_BLOCK_TRANSACTION {:?} at index {:?} with trace {:?}",
+            //     tx, tx_index, geth_trace
+            // );
             self.handle_tx(tx, geth_trace, tx_index + 1 == eth_block.transactions.len())?;
         }
+        // println!(
+        //     "circuit_input_builder handle_block: {:?}",
+        //     &self.block.container
+        // );
         self.set_value_ops_call_context_rwc_eor();
         self.set_end_block();
         Ok(())
@@ -246,13 +254,21 @@ impl<'a> CircuitInputBuilder {
         is_last_tx: bool,
     ) -> Result<(), Error> {
         let mut tx = self.new_tx(eth_tx, !geth_trace.failed)?;
+        //println!("handle_tx Transaction {:?}", &tx);
         let mut tx_ctx = TransactionContext::new(eth_tx, geth_trace, is_last_tx)?;
-
+        // println!(
+        //     "circuit_input_builder handle_tx: {:?}",
+        //     &self.block.container
+        // );
         // TODO: Move into gen_associated_steps with
         // - execution_state: BeginTx
         // - op: None
         // Generate BeginTx step
         let begin_tx_step = gen_begin_tx_ops(&mut self.state_ref(&mut tx, &mut tx_ctx))?;
+        // println!(
+        //     "circuit_input_builder handle_block: {:?}",
+        //     &self.block.container
+        // );
         tx.steps_mut().push(begin_tx_step);
 
         for (index, geth_step) in geth_trace.struct_logs.iter().enumerate() {

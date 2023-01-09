@@ -15,12 +15,20 @@ pub trait ToLimbs<const N: usize> {
 }
 
 impl ToLimbs<N_LIMBS_ACCOUNT_ADDRESS> for Address {
-    fn to_limbs(&self) -> [u16; 10] {
+    fn to_limbs(&self) -> [u16; N_LIMBS_ACCOUNT_ADDRESS] {
         // address bytes are be.... maybe just have everything be later?
         // you will need this in the future later because it makes the key ordering more
         // obvious
         let le_bytes: Vec<_> = self.0.iter().rev().cloned().collect();
         le_bytes_to_limbs(&le_bytes).try_into().unwrap()
+        //Convert Address H160 to 16 elements each is stores in u16 with value < (1<<10)
+        //Due to circuit size is 1<<10
+        // le_bytes
+        //     .into_iter()
+        //     .map(|e| e as u16)
+        //     .collect::<Vec<u16>>()
+        //     .try_into()
+        //     .unwrap()
     }
 }
 
@@ -66,6 +74,11 @@ impl Config<Address, N_LIMBS_ACCOUNT_ADDRESS> {
         offset: usize,
         value: Address,
     ) -> Result<(), Error> {
+        println!(
+            "mpi assign address value {:?} to limbs {:?}",
+            &value,
+            value.to_limbs()
+        );
         for (i, &limb) in value.to_limbs().iter().enumerate() {
             region.assign_advice(
                 || format!("limb[{}] in address mpi", i),
@@ -123,11 +136,13 @@ where
         lookup: lookups::Config,
     ) -> Config<T, N> {
         let limbs = [0; N].map(|_| meta.advice_column());
-
-        for &limb in &limbs {
+        println!("Mpi configure {}", N);
+        for (ind, &limb) in limbs.iter().enumerate() {
+            //println!("lookup index:{}, limb index {}", meta.lookups().len(), ind);
             lookup.range_check_u16(meta, "mpi limb fits into u16", |meta| {
                 meta.query_advice(limb, Rotation::cur())
             });
+            //println!("lookup {:?}", meta.lookups().last().as_ref().unwrap());
         }
         meta.create_gate("mpi value matches claimed limbs", |meta| {
             let selector = meta.query_fixed(selector, Rotation::cur());

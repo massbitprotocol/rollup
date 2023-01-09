@@ -45,9 +45,16 @@ impl MptUpdates {
     }
 
     pub fn mock_from(rows: &[Rw]) -> Self {
+        //println!("Create MptUpdates from rows.");
+        //rows.iter().for_each(|r| println!("{:?}", r));
+        //println!("END ROWS.");
         let map: HashMap<_, _> = rows
             .iter()
-            .group_by(|row| key(row))
+            .group_by(|row| {
+                let key = key(row);
+                //println!("row key {:?} from row {:?}", &key, row);
+                key
+            })
             .into_iter()
             .filter_map(|(key, rows)| key.map(|key| (key, rows)))
             .enumerate()
