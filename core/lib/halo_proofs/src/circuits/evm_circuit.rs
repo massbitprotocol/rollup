@@ -1,18 +1,20 @@
 #![allow(missing_docs)]
+pub mod param;
+pub mod step;
+pub mod table;
+pub mod util;
+use crate::table::{BlockTable, BytecodeTable, CopyTable, ExpTable, KeccakTable, RwTable, TxTable};
+use crate::util::{Challenges, SubCircuit, SubCircuitConfig};
+use crate::witness::Block;
+use eth_types::{Address, Field};
 use halo2_proofs::{
     circuit::{Layouter, Value},
     plonk::*,
 };
-pub mod table;
-use eth_types::{Address, Field};
 use itertools::Itertools;
 use strum::IntoEnumIterator;
 use table::FixedTableTag;
-use zkevm_circuits::table::{
-    BlockTable, BytecodeTable, CopyTable, ExpTable, KeccakTable, RwTable, TxTable,
-};
-use zkevm_circuits::util::{Challenges, SubCircuit, SubCircuitConfig};
-use zkevm_circuits::witness::Block;
+
 /// EvmCircuitConfig implements verification of execution trace of a block.
 #[derive(Clone, Debug)]
 pub struct EvmCircuitConfig {
@@ -149,7 +151,23 @@ impl<F: Field> SubCircuit<F> for EvmCircuit<F> {
     fn new_from_block(block: &Block<F>) -> Self {
         Self::new(block.clone())
     }
-
+    // Return the minimum number of rows required to prove the block
+    fn min_num_rows_block(block: &Block<F>) -> (usize, usize) {
+        // let num_rows_required_for_execution_steps: usize =
+        //     EvmCircuit::<F>::get_num_rows_required(block);
+        let num_rows_required_for_execution_steps = 0;
+        let num_rows_required_for_fixed_table: usize = detect_fixed_table_tags(block)
+            .iter()
+            .map(|tag| tag.build::<F>().count())
+            .sum();
+        (
+            std::cmp::max(
+                num_rows_required_for_execution_steps,
+                num_rows_required_for_fixed_table,
+            ),
+            block.evm_circuit_pad_to,
+        )
+    }
     /// Make the assignments to the EvmCircuit
     fn synthesize_sub(
         &self,
@@ -165,3 +183,32 @@ impl<F: Field> SubCircuit<F> for EvmCircuit<F> {
         Ok(())
     }
 }
+
+// /// create fixed_table_tags needed given witness block
+// pub(crate) fn _detect_fixed_table_tags<F: Field>(block: &Block<F>) -> Vec<FixedTableTag> {
+//     let need_bitwise_lookup = block.txs.iter().any(|tx| {
+//         tx.steps.iter().any(|step| {
+//             matches!(
+//                 step.opcode,
+//                 Some(OpcodeId::AND)
+//                     | Some(OpcodeId::OR)
+//                     | Some(OpcodeId::XOR)
+//                     | Some(OpcodeId::NOT)
+//             )
+//         })
+//     });
+//     FixedTableTag::iter()
+//         .filter(|t| {
+//             !matches!(
+//                 t,
+//                 FixedTableTag::BitwiseAnd | FixedTableTag::BitwiseOr | FixedTableTag::BitwiseXor
+//             ) || need_bitwise_lookup
+//         })
+//         .collect()
+// }
+/// create fixed_table_tags needed given witness block
+pub(crate) fn detect_fixed_table_tags<F: Field>(block: &Block<F>) -> Vec<FixedTableTag> {
+    FixedTableTag::iter().collect()
+}
+#[cfg(any(feature = "test", test))]
+pub mod test {}

@@ -19,13 +19,9 @@ use halo2_proofs::{
     poly::Rotation,
 };
 
-use zkevm_circuits::table::BlockTable;
-use zkevm_circuits::table::TxFieldTag;
-use zkevm_circuits::table::TxTable;
-use zkevm_circuits::util::{
-    random_linear_combine_word as rlc, Challenges, SubCircuit, SubCircuitConfig,
-};
-use zkevm_circuits::witness;
+use crate::table::{BlockTable, TxFieldTag, TxTable};
+use crate::util::{random_linear_combine_word as rlc, Challenges, SubCircuit, SubCircuitConfig};
+use crate::witness;
 
 /// Fixed by the spec
 const TX_LEN: usize = 10;
@@ -1202,6 +1198,21 @@ impl<F: Field> SubCircuit<F> for PiCircuit<F> {
             block.randomness,
             block.randomness + F::from_u128(1),
             public_data,
+        )
+    }
+
+    /// Return the minimum number of rows required to prove the block
+    fn min_num_rows_block(block: &witness::Block<F>) -> (usize, usize) {
+        let row_num = |tx_num, calldata_len| {
+            BLOCK_LEN + 1 + EXTRA_LEN + 3 * (TX_LEN * tx_num + 1) + calldata_len
+        };
+        let calldata_len = block.txs.iter().map(|tx| tx.call_data.len()).sum();
+        (
+            row_num(block.txs.len(), calldata_len),
+            row_num(
+                block.circuits_params.max_txs,
+                block.circuits_params.max_calldata,
+            ),
         )
     }
 

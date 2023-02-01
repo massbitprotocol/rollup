@@ -5,6 +5,9 @@ mod multiple_precision_integer;
 mod random_linear_combination;
 mod test;
 use super::params::N_BYTES_WORD;
+use crate::table::{LookupTable, MptTable, RwTable, RwTableTag};
+use crate::util::{Challenges, Expr, SubCircuit, SubCircuitConfig};
+use crate::witness::{self, MptUpdates, Rw, RwMap};
 use constraint_builder::{ConstraintBuilder, MptUpdateTableQueries, Queries, RwTableQueries};
 use eth_types::{Address, Field};
 use gadgets::binary_number::{BinaryNumberChip, BinaryNumberConfig};
@@ -22,9 +25,6 @@ use lookups::{Chip as LookupsChip, Config as LookupsConfig, Queries as LookupsQu
 use multiple_precision_integer::{Chip as MpiChip, Config as MpiConfig, Queries as MpiQueries};
 use random_linear_combination::{Chip as RlcChip, Config as RlcConfig, Queries as RlcQueries};
 use std::{collections::HashMap, iter::once, marker::PhantomData};
-use zkevm_circuits::table::{LookupTable, MptTable, RwTable, RwTableTag};
-use zkevm_circuits::util::{Challenges, Expr, SubCircuit, SubCircuitConfig};
-use zkevm_circuits::witness::{self, MptUpdates, Rw, RwMap};
 
 const N_LIMBS_RW_COUNTER: usize = 2;
 const N_LIMBS_ACCOUNT_ADDRESS: usize = 10;
@@ -237,6 +237,7 @@ impl<F: Field> StateCircuitConfig<F> {
                                 assert_eq!(state_root, old_root);
                                 state_root = new_root;
                             }
+                            println!("Row: {:?}", row);
                             if matches!(row.tag(), RwTableTag::CallContext) && !row.is_write() {
                                 assert_eq!(
                                     row.value_assignment(randomness),
@@ -344,7 +345,7 @@ impl<F: Field> StateCircuit<F> {
     /// make a new state circuit from an RwMap
     pub fn new(rw_map: RwMap, n_rows: usize) -> Self {
         let rows = rw_map.table_assignments();
-        let updates = MptUpdates::mock_from(&rows);
+        let updates = MptUpdates::from(&rows);
         //println!("State update {:?}", updates);
         Self {
             rows,
@@ -364,7 +365,13 @@ impl<F: Field> SubCircuit<F> for StateCircuit<F> {
     fn new_from_block(block: &witness::Block<F>) -> Self {
         Self::new(block.rws.clone(), block.circuits_params.max_rws)
     }
-
+    /// Return the minimum number of rows required to prove the block
+    fn min_num_rows_block(block: &witness::Block<F>) -> (usize, usize) {
+        (
+            block.rws.0.values().flatten().count() + 1,
+            block.circuits_params.max_rws,
+        )
+    }
     /// Make the assignments to the StateCircuit
     fn synthesize_sub(
         &self,
@@ -372,7 +379,12 @@ impl<F: Field> SubCircuit<F> for StateCircuit<F> {
         challenges: &Challenges<Value<F>>,
         layouter: &mut impl Layouter<F>,
     ) -> Result<(), Error> {
-        config.load_aux_tables(layouter)?;
+        match config.load_aux_tables(layouter) {
+            Err(err) => {
+                panic!("State circuit load_aux_tables error {:?}", &err);
+            }
+            _ => {}
+        };
         let randomness = challenges.evm_word();
 
         // Assigning to same columns in different regions should be avoided.
@@ -381,24 +393,43 @@ impl<F: Field> SubCircuit<F> for StateCircuit<F> {
         layouter.assign_region(
             || "state circuit",
             |mut region| {
-                config.rw_table.load_with_region(
+                match config.rw_table.load_with_region(
                     &mut region,
                     &self.rows,
                     self.n_rows,
                     randomness,
-                )?;
+                ) {
+                    Err(err) => {
+                        panic!("RWTable load_with_region error {:?}", &err);
+                        //Err(err)
+                    }
+                    _ => {}
+                };
 
-                config
+                match config
                     .mpt_table
-                    .load_with_region(&mut region, &self.updates, randomness)?;
+                    .load_with_region(&mut region, &self.updates, randomness)
+                {
+                    Err(err) => {
+                        panic!("MptTable load_with_region error {:?}", &err);
+                        //return Err(err);
+                    }
+                    _ => {}
+                };
 
-                config.assign_with_region(
+                match config.assign_with_region(
                     &mut region,
                     &self.rows,
                     &self.updates,
                     self.n_rows,
                     randomness,
-                )?;
+                ) {
+                    Err(err) => {
+                        panic!("Config assign_with_region error {:?}", &err);
+                        //return Err(err);
+                    }
+                    _ => {}
+                };
                 #[cfg(test)]
                 {
                     let padding_length = RwMap::padding_len(self.rows.len(), self.n_rows);

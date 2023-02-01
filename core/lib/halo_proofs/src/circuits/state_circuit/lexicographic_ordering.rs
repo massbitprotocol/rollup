@@ -2,6 +2,7 @@ use super::{
     lookups, SortKeysConfig, N_LIMBS_ACCOUNT_ADDRESS, N_LIMBS_ID, N_LIMBS_INDEX, N_LIMBS_RW_COUNTER,
 };
 use crate::circuits::params::N_BYTES_WORD;
+use crate::{util::Expr, witness::Rw};
 use eth_types::{Field, ToBigEndian};
 use gadgets::binary_number::{AsBits, BinaryNumberChip, BinaryNumberConfig};
 use halo2_proofs::{
@@ -13,7 +14,7 @@ use itertools::Itertools;
 use std::iter::once;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
-use zkevm_circuits::{impl_expr, util::Expr, witness::Rw};
+use zkevm_circuits::impl_expr;
 // We use this chip to show that the rows of the rw table are in lexicographic
 // order, i.e. ordered by (tag, id, address, field_tag, storage_key, and
 // rw_counter). We do this by packing these 6 fields into a 512 bit value X, and
@@ -204,6 +205,7 @@ impl Config {
         cur: &Rw,
         prev: &Rw,
     ) -> Result<LimbIndex, Error> {
+        //Todo: Investigate to reduce cricuit size
         region.assign_fixed(
             || "upper_limb_difference",
             self.selector,

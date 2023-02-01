@@ -28,6 +28,7 @@ impl Keccak256Hasher {
         out
     }
 }
+
 impl Hasher<Fr> for Keccak256Hasher {
     /// Gets the hash of the bit sequence.
     fn hash_bits<I: IntoIterator<Item = bool>>(&self, input: I) -> Fr {

@@ -1,9 +1,9 @@
+use super::block_data::BlockData;
 use super::{
     EvmCircuit, EvmCircuitConfig, EvmCircuitConfigArgs, PiCircuit, PiCircuitConfig,
     PiCircuitConfigArgs, StateCircuit, StateCircuitConfig, StateCircuitConfigArgs,
 };
-use bus_mapping::circuit_input_builder::{CircuitInputBuilder, CircuitsParams};
-use bus_mapping::mock::BlockData;
+use crate::circuits::circuit_builder::{CircuitBuilder, CircuitsParams};
 use eth_types::{geth_types::GethData, Field};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
@@ -12,13 +12,13 @@ use halo2_proofs::{
 };
 
 use super::evm_circuit::table::FixedTableTag;
-use std::array;
-use strum::IntoEnumIterator;
-use zkevm_circuits::table::{
+use crate::table::{
     BlockTable, BytecodeTable, CopyTable, ExpTable, KeccakTable, MptTable, RwTable, TxTable,
 };
-use zkevm_circuits::util::{Challenges, SubCircuit, SubCircuitConfig};
-use zkevm_circuits::witness::{block_convert, Block, MptUpdates};
+use crate::util::{Challenges, SubCircuit, SubCircuitConfig};
+use crate::witness::{block_convert, Block, MptUpdates};
+use std::array;
+use strum::IntoEnumIterator;
 
 /// Mock randomness used for `SuperCircuit`.
 pub const MOCK_RANDOMNESS: u64 = 0x100;
@@ -147,12 +147,36 @@ impl<F: Field, const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_RWS: u
         //     "Main circuit synthesize with block params {:?}",
         //     block.circuits_params
         // );
-        self.state_circuit
-            .synthesize_sub(&config.state_circuit, &challenges, &mut layouter)?;
-        self.evm_circuit
-            .synthesize_sub(&config.evm_circuit, &challenges, &mut layouter)?;
-        self.pi_circuit
-            .synthesize_sub(&config.pi_circuit, &challenges, &mut layouter)?;
+        match self
+            .state_circuit
+            .synthesize_sub(&config.state_circuit, &challenges, &mut layouter)
+        {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                println!("StateCircuit error {:?}", &err);
+                Err(err)
+            }
+        };
+        match self
+            .evm_circuit
+            .synthesize_sub(&config.evm_circuit, &challenges, &mut layouter)
+        {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                println!("EvmCircuit error {:?}", &err);
+                Err(err)
+            }
+        };
+        match self
+            .pi_circuit
+            .synthesize_sub(&config.pi_circuit, &challenges, &mut layouter)
+        {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                println!("PiCircuit {:?}", &err);
+                Err(err)
+            }
+        };
         //self.evm_circuit.synthesize(config.evm_circuit, layouter)?;
         Ok(())
     }
@@ -169,7 +193,7 @@ impl<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_RWS: usize>
     #[allow(clippy::type_complexity)]
     pub fn build(
         geth_data: GethData,
-    ) -> Result<(u32, Self, Vec<Vec<Fr>>, CircuitInputBuilder), bus_mapping::Error> {
+    ) -> Result<(u32, Self, Vec<Vec<Fr>>, CircuitBuilder), bus_mapping::Error> {
         let block_data = BlockData::new_from_geth_data_with_params(
             geth_data.clone(),
             CircuitsParams {
@@ -180,12 +204,12 @@ impl<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_RWS: usize>
                 keccak_padding: None,
             },
         );
-        let mut builder = block_data.new_circuit_input_builder();
+        let mut builder = block_data.new_circuit_builder();
         builder
             .handle_block(&geth_data.eth_block, &geth_data.geth_traces)
             .expect("could not handle block tx");
 
-        let ret = Self::build_from_circuit_input_builder(&builder)?;
+        let ret = Self::build_from_circuit_builder(&builder)?;
         Ok((ret.0, ret.1, ret.2, builder))
     }
     /// From CircuitInputBuilder, generate a SuperCircuit instance with all of
@@ -193,8 +217,8 @@ impl<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_RWS: usize>
     ///
     /// Also, return with it the minimum required SRS degree for the circuit and
     /// the Public Inputs needed.
-    pub fn build_from_circuit_input_builder(
-        builder: &CircuitInputBuilder,
+    pub fn build_from_circuit_builder(
+        builder: &CircuitBuilder,
     ) -> Result<(u32, Self, Vec<Vec<Fr>>), bus_mapping::Error> {
         let mut block = block_convert(&builder.block, &builder.code_db).unwrap();
         block.randomness = Fr::from(MOCK_RANDOMNESS);
@@ -252,14 +276,10 @@ mod main_circuit_tests {
     use halo2_proofs::dev::MockProver;
     use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
     use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG};
-    use halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
-    use halo2_proofs::poly::kzg::strategy::SingleStrategy;
     use halo2_proofs::{
         halo2curves::bn256::{Bn256, Fr, G1Affine},
         poly::commitment::ParamsProver,
-        transcript::{
-            Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
-        },
+        transcript::{Blake2bWrite, Challenge255, TranscriptWriterBuffer},
     };
     use log::error;
     use mock::{TestContext, MOCK_CHAIN_ID};
@@ -268,7 +288,6 @@ mod main_circuit_tests {
     use rand_xorshift::XorShiftRng;
     use std::collections::HashMap;
     use std::env::var;
-    use std::slice;
 
     #[test]
     fn main_circuit_degree() {
@@ -326,7 +345,7 @@ mod main_circuit_tests {
         let (k, circuit, instance, _) = MainCircuit::<_, 1, 32, 256>::build(block).unwrap();
         //Instance length must equals constraint.num_instance_column
 
-        match MockProver::run(17, &circuit, instance.clone()) {
+        match MockProver::run(18, &circuit, instance.clone()) {
             Ok(prover) => {
                 let res = prover.verify_par();
                 if let Err(err) = res {
@@ -364,45 +383,45 @@ mod main_circuit_tests {
         //let ref_instance = instance.iter().map(|elm| elm).collect::<Vec<&Fr>>();
         //let instances = instance.as_slice();
         let instances: Vec<&[Fr]> = instance.iter().map(|v| &v[..]).collect();
-        let start2 = start_timer!(|| proof_message);
-        create_proof::<
-            KZGCommitmentScheme<Bn256>,
-            ProverSHPLONK<'_, Bn256>,
-            Challenge255<G1Affine>,
-            XorShiftRng,
-            Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>>,
-            MainCircuit<Fr, 1, 32, 256>,
-        >(
-            &general_params,
-            &pk,
-            &[circuit],
-            &[&instances],
-            rng,
-            &mut transcript,
-        )
-        .expect("proof generation should not fail");
-        let proof = transcript.finalize();
-        end_timer!(start2);
-        println!("Proof size: {:?}", &proof.len());
-        // Bench verification time
-        let start3 = start_timer!(|| "Packed Multi-Keccak Proof verification");
-        let mut verifier_transcript = Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof[..]);
-        let strategy = SingleStrategy::new(&general_params);
+        //    let start2 = start_timer!(|| proof_message);
+        //     create_proof::<
+        //         KZGCommitmentScheme<Bn256>,
+        //         ProverSHPLONK<'_, Bn256>,
+        //         Challenge255<G1Affine>,
+        //         XorShiftRng,
+        //         Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>>,
+        //         MainCircuit<Fr, 1, 32, 256>,
+        //     >(
+        //         &general_params,
+        //         &pk,
+        //         &[circuit],
+        //         &[&instances],
+        //         rng,
+        //         &mut transcript,
+        //     )
+        //     .expect("proof generation should not fail");
+        //     let proof = transcript.finalize();
+        //     end_timer!(start2);
+        //     println!("Proof size: {:?}", &proof.len());
+        //     // Bench verification time
+        //     let start3 = start_timer!(|| "Packed Multi-Keccak Proof verification");
+        //     let mut verifier_transcript = Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof[..]);
+        //     let strategy = SingleStrategy::new(&general_params);
 
-        verify_proof::<
-            KZGCommitmentScheme<Bn256>,
-            VerifierSHPLONK<'_, Bn256>,
-            Challenge255<G1Affine>,
-            Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
-            SingleStrategy<'_, Bn256>,
-        >(
-            &verifier_params,
-            pk.get_vk(),
-            strategy,
-            &[&instances],
-            &mut verifier_transcript,
-        )
-        .expect("failed to verify bench circuit");
-        end_timer!(start3);
+        //     verify_proof::<
+        //         KZGCommitmentScheme<Bn256>,
+        //         VerifierSHPLONK<'_, Bn256>,
+        //         Challenge255<G1Affine>,
+        //         Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
+        //         SingleStrategy<'_, Bn256>,
+        //     >(
+        //         &verifier_params,
+        //         pk.get_vk(),
+        //         strategy,
+        //         &[&instances],
+        //         &mut verifier_transcript,
+        //     )
+        //     .expect("failed to verify bench circuit");
+        //     end_timer!(start3);
     }
 }

@@ -1,7 +1,12 @@
 //! Testing utilities
 
+use super::block_data::BlockData;
 use super::state_circuit::StateCircuit;
-use bus_mapping::{circuit_input_builder::CircuitsParams, mock::BlockData};
+use crate::circuits::circuit_builder::CircuitsParams;
+use crate::{
+    util::SubCircuit,
+    witness::{block_convert, Block, Rw},
+};
 use eth_types::geth_types::{GethData, Transaction};
 use ethers_core::types::{NameOrAddress, TransactionRequest};
 use ethers_signers::{LocalWallet, Signer};
@@ -9,10 +14,6 @@ use halo2_proofs::dev::{MockProver, VerifyFailure};
 use halo2_proofs::halo2curves::bn256::Fr;
 use mock::TestContext;
 use rand::{CryptoRng, Rng};
-use zkevm_circuits::{
-    util::SubCircuit,
-    witness::{block_convert, Block, Rw},
-};
 
 #[cfg(test)]
 #[ctor::ctor]
@@ -50,13 +51,13 @@ pub fn run_test_circuits<const NACC: usize, const NTX: usize>(
     let block: GethData = test_ctx.into();
     let mut builder =
         BlockData::new_from_geth_data_with_params(block.clone(), CircuitsParams::default())
-            .new_circuit_input_builder();
+            .new_circuit_builder();
     builder
         .handle_block(&block.eth_block, &block.geth_traces)
         .unwrap();
 
     // build a witness block from trace result
-    let block = zkevm_circuits::witness::block_convert(&builder.block, &builder.code_db).unwrap();
+    let block = crate::witness::block_convert(&builder.block, &builder.code_db).unwrap();
 
     // finish required tests according to config using this witness block
     test_circuits_witness_block(block, config.unwrap_or_default())
@@ -70,13 +71,13 @@ pub fn run_test_circuits_with_params<const NACC: usize, const NTX: usize>(
 ) -> Result<(), Vec<VerifyFailure>> {
     let block: GethData = test_ctx.into();
     let mut builder = BlockData::new_from_geth_data_with_params(block.clone(), circuits_params)
-        .new_circuit_input_builder();
+        .new_circuit_builder();
     builder
         .handle_block(&block.eth_block, &block.geth_traces)
         .unwrap();
 
     // build a witness block from trace result
-    let block = zkevm_circuits::witness::block_convert(&builder.block, &builder.code_db).unwrap();
+    let block = crate::witness::block_convert(&builder.block, &builder.code_db).unwrap();
 
     // finish required tests according to config using this witness block
     test_circuits_witness_block(block, config.unwrap_or_default())
@@ -86,7 +87,7 @@ pub fn run_test_circuits_with_params<const NACC: usize, const NTX: usize>(
 pub fn test_circuits_block_geth_data_default(block: GethData) -> Result<(), Vec<VerifyFailure>> {
     let mut builder =
         BlockData::new_from_geth_data_with_params(block.clone(), CircuitsParams::default())
-            .new_circuit_input_builder();
+            .new_circuit_builder();
     builder
         .handle_block(&block.eth_block, &block.geth_traces)
         .unwrap();

@@ -1,4 +1,5 @@
-//use crate::evm_circuit::step::ExecutionState;
+use crate::evm_circuit::step::ExecutionState;
+pub use crate::table::TxContextFieldTag;
 use bus_mapping::evm::OpcodeId;
 use eth_types::Field;
 use gadgets::util::Expr;
@@ -6,7 +7,6 @@ use halo2_proofs::plonk::Expression;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use zkevm_circuits::impl_expr;
-pub use zkevm_circuits::table::TxContextFieldTag;
 
 #[derive(Clone, Copy, Debug, EnumIter)]
 pub enum FixedTableTag {
@@ -22,7 +22,7 @@ pub enum FixedTableTag {
     // BitwiseAnd,
     // BitwiseOr,
     // BitwiseXor,
-    //ResponsibleOpcode,
+    ResponsibleOpcode,
     Pow2,
     ConstantGasCost,
     OpcodeStack,
@@ -72,7 +72,6 @@ impl FixedTableTag {
             // Self::BitwiseXor => Box::new((0..256).flat_map(move |lhs| {
             //     (0..256).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs ^ rhs)])
             // })),
-            /*
             Self::ResponsibleOpcode => {
                 Box::new(ExecutionState::iter().flat_map(move |execution_state| {
                     execution_state
@@ -88,7 +87,6 @@ impl FixedTableTag {
                         })
                 }))
             }
-            */
             Self::Pow2 => Box::new((0..256).map(move |value| {
                 let (pow_lo, pow_hi) = if value < 128 {
                     (F::from_u128(1_u128 << value), F::from(0))

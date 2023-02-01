@@ -1,11 +1,21 @@
 use eth_types::Field;
 use ff::PrimeField;
-use halo2_proofs::halo2curves::bn256;
+use halo2_proofs::{circuit::Value, halo2curves::bn256};
+use keccak256::plain::Keccak;
 use zkevm_circuits::keccak_circuit::util::pack;
 use zksync_crypto::merkle_tree::hasher::Hasher;
-
-use keccak256::plain::Keccak;
 type Fr = bn256::Fr;
+// pub trait HashValues<F: Field> {
+//     fn hash_values(&self) -> Value<F>;
+// }
+// impl<F: Field> HashValues<F> for Value<(F, F)> {
+//     fn hash_values(&self) -> Value<F> {
+//         match self.inner {
+//             Some((a, b)) => (Value::known(a), Value::known(b)),
+//             None => (Value::unknown(), Value::unknown()),
+//         }
+//     }
+// }
 /// Default hasher for the zkSync state hash calculation.
 #[derive(Default, Clone, Debug)]
 pub struct Keccak256Hasher {}
@@ -28,19 +38,19 @@ impl Keccak256Hasher {
         out
     }
 }
-impl Hasher<Fr> for Keccak256Hasher {
+impl<F: Field> Hasher<F> for Keccak256Hasher {
     /// Gets the hash of the bit sequence.
-    fn hash_bits<I: IntoIterator<Item = bool>>(&self, input: I) -> Fr {
+    fn hash_bits<I: IntoIterator<Item = bool>>(&self, input: I) -> F {
         let bits: Vec<bool> = input.into_iter().collect();
         let bytes = Keccak256Hasher::to_bytes(bits.as_slice());
         let mut keccak = Keccak::default();
         keccak.update(bytes.as_slice());
         let hashed_bits = keccak.digest();
-        let packed = pack::<Fr>(hashed_bits.as_slice());
+        let packed = pack::<F>(hashed_bits.as_slice());
         packed
     }
 
-    fn hash_elements<I: IntoIterator<Item = Fr>>(&self, elements: I) -> Fr {
+    fn hash_elements<I: IntoIterator<Item = F>>(&self, elements: I) -> F {
         let mut bits: Vec<u8> = vec![];
         elements
             .into_iter()
@@ -48,16 +58,23 @@ impl Hasher<Fr> for Keccak256Hasher {
         let mut keccak = Keccak::default();
         keccak.update(bits.as_slice());
         let hashed_bits = keccak.digest();
-        let packed = pack::<Fr>(hashed_bits.as_slice());
+        let packed = pack::<F>(hashed_bits.as_slice());
         packed
     }
 
-    fn compress(&self, lhs: &Fr, rhs: &Fr, _i: usize) -> Fr {
-        let xored_bits = xor_fields(lhs, rhs);
+    fn compress(&self, lhs: &F, rhs: &F, _i: usize) -> F {
+        let mut bits: Vec<u8> = vec![];
+        lhs.to_repr().as_ref().iter().for_each(|b| bits.push(*b));
+        rhs.to_repr().as_ref().iter().for_each(|b| bits.push(*b));
+        // let xored_bits = xor_fields(lhs, rhs);
         let mut keccak = Keccak::default();
-        keccak.update(&xored_bits);
+        keccak.update(bits.as_slice());
         let hashed_bits = keccak.digest();
-        let packed = pack::<Fr>(hashed_bits.as_slice());
+        let packed = pack::<F>(hashed_bits.as_slice());
+        // println!(
+        //     "Keccak 256 hasher: left {:?}; right {:?}; hash {:?}",
+        //     lhs, rhs, &packed
+        // );
         packed
     }
 }

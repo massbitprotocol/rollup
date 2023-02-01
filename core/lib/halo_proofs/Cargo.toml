@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 ethers-core = "0.17.0"
+ethers-providers = "0.17.0"
 ethers-signers = { version = "1.0.2", optional = true }
 #halo2 = { git = "https://github.com/zcash/halo2.git", branch = "main" }
 #halo2_proofs = { version = "0.2.0" }
@@ -25,7 +26,7 @@ rand = "0.8.5"
 rand_chacha = "0.3"
 rand_core = "0.6.4"
 rand_xorshift = "0.3"
-
+sha3 = "0.10"
 lazy_static = "1.4.0"
 libsecp256k1 = "0.7"
 log = "0.4.14"
@@ -58,6 +59,7 @@ zksync_state = { path = "../state", version = "1.0" }
 zksync_types = { path = "../types", version = "1.0" }
 zksync_basic_types = { path = "../basic_types", version = "1.0" }
 zksync_crypto = { path = "../crypto", version = "1.0" }
+zksync_utils = { path = "../utils", version = "1.0" }
 
 franklin_crypto = { package = "franklin-crypto", version = "0.0.5", git = "https://github.com/matter-labs/franklin-crypto.git", branch="beta", features = ["multicore", "plonk"]}
 
